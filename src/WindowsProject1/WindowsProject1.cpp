@@ -24,6 +24,13 @@ float positionX;
 float positionY;
 float speed;
 
+constexpr int boardWidth = 10;
+constexpr int boardHeight = 20;
+constexpr int cellSize = 25; // 25px
+
+int board[boardHeight][boardWidth] = {};
+
+
 bool isDownPressed = false;
 bool isUpPressed = false;
 bool isRightPressed = false;
@@ -44,10 +51,6 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 void Init() {
     prevTick = GetTickCount();
     speed = 50.0f;
-    width = 60;
-    height = 60;
-    positionX = 30;
-    positionY = 30;
 
     g_hdc = GetDC(g_hWnd);
 
@@ -58,36 +61,26 @@ void Init() {
 }
 
 void Update(float dt) {
-    float directionX = 0.0f;
-    float directionY = 0.0f;
-
-    if (isDownPressed) {
-        directionY += 1.0f;
-    }
-    if (isUpPressed) {
-        directionY -= 1.0f;
-    }
-    if (isRightPressed) {
-        directionX += 1.0f;
-    }
-    if (isLeftPressed) {
-        directionX -= 1.0f;
-    }
-
-    float length = std::sqrt(directionY * directionY + directionX * directionX);
-    if (length > 0.0f) {
-        directionX = directionX / length;
-        directionY = directionY / length;
-    }
-
-    positionX += directionX * speed * dt;
-    positionY += directionY * speed * dt;
+ 
 }
 
 void Render() {
     RECT rect = { 0, 0, 800, 600 };
     FillRect(memDC, &rect, (HBRUSH)(COLOR_WINDOW + 1));
-    Rectangle(memDC, positionX - width / 2, positionY - height / 2, positionX + width / 2, positionY + height / 2); 
+
+    // Tetris grid 생성
+    for (int i = 0; i < boardWidth; i++) {
+        for (int j = 0; j < boardHeight; j++) {
+            if (board[j][i] == 1) {
+                // Fill the rect
+                RECT r = { 0 + i * cellSize, 0 + j * cellSize, (i + 1) * cellSize, (j + 1) * cellSize };
+                FillRect(memDC, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+            }
+            else {
+                Rectangle(memDC, 0 + i * cellSize, 0 + j * cellSize, (i + 1) * cellSize, (j + 1) * cellSize);
+            }
+        }
+    }
     // WINGDIAPI BOOL  WINAPI BitBlt( _In_ HDC hdc, _In_ int x, _In_ int y, _In_ int cx, _In_ int cy, _In_opt_ HDC hdcSrc, _In_ int x1, _In_ int y1, _In_ DWORD rop);
     BitBlt(g_hdc, 0, 0, 800, 600, memDC, 0, 0, SRCCOPY);
 }
@@ -145,8 +138,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
             break;
         }
 
-        float dt = (GetTickCount() - prevTick) / 1000.0f;
-        prevTick = GetTickCount();
+        DWORD currentTick = GetTickCount();
+        float dt = (currentTick - prevTick) / 1000.0f;
+        prevTick = currentTick;
         Update(dt);
         Render();
     }
