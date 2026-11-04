@@ -1,9 +1,22 @@
 ﻿// WindowsProject1.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 //
 
+// Tetromino 정의
+enum class TetrominoType {
+    I,
+    O,
+    T,
+    S,
+    Z,
+    J,
+    L
+};
+
+
 #include "framework.h"
 #include "WindowsProject1.h"
 #include <cmath>
+#include <stdio.h>
 
 #define MAX_LOADSTRING 100
 
@@ -16,31 +29,31 @@ HDC g_hdc;
 HDC memDC;
 HBITMAP memBM;
 HGDIOBJ oldBM;
+TetrominoType currentType;
 
 unsigned int prevTick;
-float width;
-float height;
-float positionX;
-float positionY;
-float speed;
 
 constexpr int boardWidth = 10;
 constexpr int boardHeight = 20;
 constexpr int cellSize = 25; // 25px
 
 int board[boardHeight][boardWidth] = {};
-
+int shape[4][4] = {};
+int pieceX;
+int pieceY;
 
 bool isDownPressed = false;
 bool isUpPressed = false;
 bool isRightPressed = false;
 bool isLeftPressed = false;
+bool isTetrisReady;
 
 // 전역 함수:
 void Init();
 void Update(float dt);
 void Render();
 void Release();
+void SpawnTetromino();
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -50,9 +63,8 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 void Init() {
     prevTick = GetTickCount();
-    speed = 50.0f;
-
     g_hdc = GetDC(g_hWnd);
+    isTetrisReady = true;
 
     // Double buffering
     memDC = CreateCompatibleDC(g_hdc);
@@ -61,7 +73,10 @@ void Init() {
 }
 
 void Update(float dt) {
- 
+    if (isTetrisReady) {
+        SpawnTetromino();
+        isTetrisReady = false;
+     }
 }
 
 void Render() {
@@ -81,6 +96,24 @@ void Render() {
             }
         }
     }
+
+    // Tetris shape render
+    if (isTetrisReady) { // Tetris 를 생성해야한다면
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                if (shape[j][i] == 1) {
+                    // Fill the rect
+                    int left = pieceX + i;
+                    int right = pieceX + i + 1;
+                    int top = pieceY + j;
+                    int bottom = pieceY + j + 1;
+                    RECT r = {left * cellSize, top * cellSize, right * cellSize, bottom * cellSize };
+                    FillRect(memDC, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+                }
+            }
+        }
+    }
+
     // WINGDIAPI BOOL  WINAPI BitBlt( _In_ HDC hdc, _In_ int x, _In_ int y, _In_ int cx, _In_ int cy, _In_opt_ HDC hdcSrc, _In_ int x1, _In_ int y1, _In_ DWORD rop);
     BitBlt(g_hdc, 0, 0, 800, 600, memDC, 0, 0, SRCCOPY);
 }
@@ -92,12 +125,41 @@ void Release() {
     ReleaseDC(g_hWnd, g_hdc);
 }
 
+void SpawnTetromino() {
+    currentType = TetrominoType::Z;
+    pieceX = boardWidth / 2;
+    pieceY = 0;
+    // shape 값 0 으로 초기화
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            shape[j][i] = 0;
+        }
+    }
+
+    // currentType 에 따라 shape 변형
+    switch (currentType) {
+    case TetrominoType::O:
+        shape[1][1] = 1;
+        shape[1][2] = 1;
+        shape[2][1] = 1;
+        shape[2][2] = 1;
+        break;
+    case TetrominoType::Z:
+        // ... 작성
+        shape[1][1] = 1;
+        shape[1][2] = 1;
+        shape[2][2] = 1;
+        shape[2][3] = 1;
+        break;
+    }
+}
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
     _In_ LPWSTR    lpCmdLine,
     _In_ int       nCmdShow)
-{
+{ 
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
