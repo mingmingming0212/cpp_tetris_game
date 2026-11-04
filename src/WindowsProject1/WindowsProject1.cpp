@@ -1,5 +1,4 @@
 ﻿// WindowsProject1.cpp : 애플리케이션에 대한 진입점을 정의합니다.
-//
 
 // Tetromino 정의
 enum class TetrominoType {
@@ -12,13 +11,15 @@ enum class TetrominoType {
     L
 };
 
-
 #include "framework.h"
 #include "WindowsProject1.h"
 #include <cmath>
 #include <stdio.h>
+#include <iostream>
 
 #define MAX_LOADSTRING 100
+
+
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -32,7 +33,7 @@ HGDIOBJ oldBM;
 TetrominoType currentType;
 
 unsigned int prevTick;
-
+float relapsed;
 constexpr int boardWidth = 10;
 constexpr int boardHeight = 20;
 constexpr int cellSize = 25; // 25px
@@ -47,6 +48,7 @@ bool isUpPressed = false;
 bool isRightPressed = false;
 bool isLeftPressed = false;
 bool isTetrisReady;
+bool isCollision;
 
 // 전역 함수:
 void Init();
@@ -54,6 +56,7 @@ void Update(float dt);
 void Render();
 void Release();
 void SpawnTetromino();
+void CheckCollision();
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -61,11 +64,18 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+
+// TODO: Implement CheckCollision
+void CheckCollision() {
+
+}
+
 void Init() {
     prevTick = GetTickCount();
     g_hdc = GetDC(g_hWnd);
     isTetrisReady = true;
-
+    isCollision = false;
+    relapsed = 0;
     // Double buffering
     memDC = CreateCompatibleDC(g_hdc);
     memBM = CreateCompatibleBitmap(g_hdc, 800, 600);
@@ -73,10 +83,38 @@ void Init() {
 }
 
 void Update(float dt) {
+    relapsed += dt;
+
     if (isTetrisReady) {
         SpawnTetromino();
         isTetrisReady = false;
      }
+
+    if (CheckCollision()) { // When spawned tetromino is collide with Barrier OR locked tetromino
+        // 1. Lock in tetromino into current position | currentPos = pieceX pieceY into board
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                if (shape[j][i] == 1) {
+                    board[pieceY + j][pieceX + i] = 1;
+                }
+            }
+        }
+
+        // 2. Remove tetromino from the shape
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                shape[j][i] = 0;
+            }
+        }
+
+        // 3. Spawn Tetromino
+        isTetrisReady = true;
+    }
+
+    if (relapsed >= 1) {
+        relapsed -= 1;
+        pieceY += 1;
+    }
 }
 
 void Render() {
@@ -98,21 +136,20 @@ void Render() {
     }
 
     // Tetris shape render
-    if (isTetrisReady) { // Tetris 를 생성해야한다면
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                if (shape[j][i] == 1) {
-                    // Fill the rect
-                    int left = pieceX + i;
-                    int right = pieceX + i + 1;
-                    int top = pieceY + j;
-                    int bottom = pieceY + j + 1;
-                    RECT r = {left * cellSize, top * cellSize, right * cellSize, bottom * cellSize };
-                    FillRect(memDC, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
-                }
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (shape[j][i] == 1) {
+                // Fill the rect
+                int left = pieceX + i;
+                int right = pieceX + i + 1;
+                int top = pieceY + j;
+                int bottom = pieceY + j + 1;
+                RECT r = { left * cellSize, top * cellSize, right * cellSize, bottom * cellSize };
+                FillRect(memDC, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
             }
         }
     }
+    
 
     // WINGDIAPI BOOL  WINAPI BitBlt( _In_ HDC hdc, _In_ int x, _In_ int y, _In_ int cx, _In_ int cy, _In_opt_ HDC hdcSrc, _In_ int x1, _In_ int y1, _In_ DWORD rop);
     BitBlt(g_hdc, 0, 0, 800, 600, memDC, 0, 0, SRCCOPY);
@@ -126,7 +163,7 @@ void Release() {
 }
 
 void SpawnTetromino() {
-    currentType = TetrominoType::Z;
+    currentType = TetrominoType::S;
     pieceX = boardWidth / 2;
     pieceY = 0;
     // shape 값 0 으로 초기화
@@ -144,8 +181,7 @@ void SpawnTetromino() {
         shape[2][1] = 1;
         shape[2][2] = 1;
         break;
-    case TetrominoType::Z:
-        // ... 작성
+    case TetrominoType::S:
         shape[1][1] = 1;
         shape[1][2] = 1;
         shape[2][2] = 1;
@@ -204,6 +240,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         float dt = (currentTick - prevTick) / 1000.0f;
         prevTick = currentTick;
         Update(dt);
+        printf("%f", dt);
         Render();
     }
 
