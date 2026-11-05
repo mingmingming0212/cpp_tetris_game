@@ -42,6 +42,9 @@ int board[boardHeight][boardWidth] = {};
 int shape[4][4] = {};
 int pieceX;
 int pieceY;
+int bottomY;
+int mostLeftX;
+int mostRightX;
 
 bool isDownPressed = false;
 bool isUpPressed = false;
@@ -56,7 +59,7 @@ void Update(float dt);
 void Render();
 void Release();
 void SpawnTetromino();
-void CheckCollision();
+bool CheckCollision();
 
 // 이 코드 모듈에 포함된 함수의 선언을 전달합니다:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -64,10 +67,53 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+/// <summary>
+/// 오른쪽 Boundary 를 next move 에 넘을 것인지 체크합니다.
+/// 넘는다면 True 를 반환합니다.
+/// </summary>
+/// <returns></returns>
+bool CheckRIghtBoundary() {
+    if (mostRightX + pieceX + 1 >= boardWidth) {
+        return true;
+    }
+    return false;
+}
+
+/// <summary>
+/// 왼쪽 Boundary 를 next move 에 넘을 것인지 체크합니다.
+/// 넘는다면 True 를 반환합니다.
+/// </summary>
+/// <returns></returns>
+bool CheckLeftBoundary() {
+    if (mostLeftX + pieceX - 1 < 0) {
+        return true;
+    }
+    return false;
+}
+
 
 // TODO: Implement CheckCollision
-void CheckCollision() {
+bool CheckCollision() {
+    
+    // calculation:
+    // bottomY + piece Y > boardHeight => 1.
+    // [bottomY + piece Y][pieceX] 
+    
+    // 1. Next move Out of bound (piece Y + current type of tetromino bottomY exceeds the boundary)
+    if (bottomY + pieceY + 1 >= boardHeight) {
+        return true;
+    }
 
+    // 2. Next move Calculated coordinate is already occupied on board variable
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (shape[j][i] == 1 && board[pieceY + j + 1][pieceX + i] == 1) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 void Init() {
@@ -88,32 +134,53 @@ void Update(float dt) {
     if (isTetrisReady) {
         SpawnTetromino();
         isTetrisReady = false;
-     }
+    }
 
-    if (CheckCollision()) { // When spawned tetromino is collide with Barrier OR locked tetromino
-        // 1. Lock in tetromino into current position | currentPos = pieceX pieceY into board
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                if (shape[j][i] == 1) {
-                    board[pieceY + j][pieceX + i] = 1;
-                }
-            }
-        }
+    // handle user input
+    if (isRightPressed == true && !CheckRIghtBoundary()) {
+        pieceX += 1;
+        isRightPressed = false;
+    }
 
-        // 2. Remove tetromino from the shape
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                shape[j][i] = 0;
-            }
-        }
+    if (isLeftPressed == true && !CheckLeftBoundary()) {
+        pieceX -= 1;
+        isLeftPressed = false;
+    }
+    
 
-        // 3. Spawn Tetromino
-        isTetrisReady = true;
+    if (isDownPressed == true && !CheckCollision()) {
+        pieceY += 1;
+        isDownPressed = false;
     }
 
     if (relapsed >= 1) {
+        if (CheckCollision()) {
+
+            // When spawned tetromino is collide with Barrier OR locked tetromino
+            // 1. Lock in tetromino into current position | currentPos = pieceX pieceY into board
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    if (shape[j][i] == 1) {
+                        board[pieceY + j][pieceX + i] = 1;
+                    }
+                }
+            }
+
+            // 2. Remove tetromino from the shape
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 4; j++) {
+                    shape[j][i] = 0;
+                }
+            }
+
+            // 3. Spawn Tetromino
+            isTetrisReady = true;
+        }
+        else {
+            pieceY += 1;
+        }
         relapsed -= 1;
-        pieceY += 1;
+
     }
 }
 
@@ -187,6 +254,34 @@ void SpawnTetromino() {
         shape[2][2] = 1;
         shape[2][3] = 1;
         break;
+    }
+
+    // find bottomY
+    bottomY = -1;
+    for (int i = 0; i < 4; i++) { 
+        for (int j = 0; j < 4; j++) { // j corresponds to height
+            if (shape[j][i] == 1 && j > bottomY) {
+                bottomY = j;
+            }
+        }
+    }
+
+    mostLeftX = boardWidth + 1;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) { // j corresponds to height
+            if (shape[j][i] == 1 && i < mostLeftX) {
+                mostLeftX = i;
+            }
+        }
+    }
+
+    mostRightX = -1;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) { // j corresponds to height
+            if (shape[j][i] == 1 && i > mostRightX) {
+                mostRightX = i;
+            }
+        }
     }
 }
 
@@ -350,9 +445,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (wParam == VK_DOWN) {
             isDownPressed = true;
         }
-        if (wParam == VK_UP) {
-            isUpPressed = true;
-        }
         if (wParam == VK_RIGHT) {
             isRightPressed = true;
         }
@@ -361,18 +453,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_KEYUP:
-        if (wParam == VK_DOWN) {
-            isDownPressed = false;
-        }
-        if (wParam == VK_UP) {
-            isUpPressed = false;
-        }
-        if (wParam == VK_RIGHT) {
-            isRightPressed = false;
-        }
-        if (wParam == VK_LEFT) {
-            isLeftPressed = false;
-        }
         break;
     case WM_KILLFOCUS:
         isDownPressed = false;
